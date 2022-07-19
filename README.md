@@ -1,6 +1,6 @@
 # next-prediction.pytorch
  
-This repo is the unofficial reimplementation of pytorch version of [next-prediction](https://github.com/google/next-prediction).
+This repo is the unofficial PyTorch reimplementation of [next-prediction](https://github.com/google/next-prediction).
 
 We strongly follow the structure of [next-prediction](https://github.com/google/next-prediction) and change each line to PyTorch to make sure the model pipeline is consistent, except that we add `pip install wandb` to monitor the process.
 
