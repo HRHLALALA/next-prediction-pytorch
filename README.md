@@ -52,6 +52,13 @@ There are two possible bugs here we have not tested:
 * the pytorch version of tf.embedding_lookup
 * the pytorch version of tf.gather_nd
 
+Please use the raw scripts to train the model or use `bash scripts/run.sh ${your args}`. 
+
+Note on `scripts/run.sh`: 
+* args need to be assigned using the format `--{key}={0/1}` for booleans or `--{key}={value}` for others. 
+* Use `--run_mode=train/test_single` to select whether training or testing
+
+Welcome to contribute to this reimplementation and let me know if you find bugs!
 
 If you find this code useful in your research then please cite
 
