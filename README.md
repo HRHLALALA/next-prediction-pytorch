@@ -72,3 +72,6 @@ If you find this code useful in your research then please cite
   year = {2019}
 }
 ```
+
+### Updates
+**29 July 2022**: We have added `kaiming_normal_` for convolution weights, `trunc_normal_` for linear layers and `constant_` for biases. The performance boosts up and gets close to the official version 
