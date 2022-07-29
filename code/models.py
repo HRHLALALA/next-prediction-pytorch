@@ -58,6 +58,9 @@ class Conv2d(nn.Conv2d):
         self.scope = scope
         self.activation = activation()
         self.data_format = data_format
+        nn.init.kaiming_normal_(self.weight)
+        if add_bias:
+            nn.init.constant_(self.bias,0)
 
     def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
         return max((math.ceil(i) - 1) + (k - 1) * d + 1 - i, 0)
@@ -92,7 +95,7 @@ class Conv2d(nn.Conv2d):
 
 
 class Linear(nn.Module):
-    def __init__(self, input_size, output_size, scope="", add_bias=False, activation=nn.Identity):
+    def __init__(self, input_size, output_size, scope="", add_bias=True, activation=nn.Identity):
         super(Linear, self).__init__()
         self.linear = nn.Linear(
             input_size,
@@ -101,6 +104,9 @@ class Linear(nn.Module):
         )
         self.scope = scope
         self.activation = activation()
+        nn.init.trunc_normal_(self.linear.weight, std=0.1)
+        if add_bias:
+            nn.init.constant_(self.linear.bias, 0)
 
     def forward(self, x):
         x = self.linear(x)
