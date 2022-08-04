@@ -33,6 +33,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import time
+from functools import wraps
+
+def timethis(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        r = func(*args, **kwargs)
+        end = time.perf_counter()
+        print('{}.{} : {}'.format(func.__module__, func.__name__, end-start))
+        return r
+    return wrapper
 
 def get_model(config, gpuid):
     """Make model instance and pin to one gpu.
@@ -58,7 +70,10 @@ class Conv2d(nn.Conv2d):
         self.scope = scope
         self.activation = activation()
         self.data_format = data_format
-        nn.init.kaiming_normal_(self.weight)
+        if w_init is None:
+            nn.init.kaiming_normal_(self.weight)
+        else:
+            w_init(self.weight)
         if add_bias:
             nn.init.constant_(self.bias,0)
 
@@ -104,6 +119,7 @@ class Linear(nn.Module):
         )
         self.scope = scope
         self.activation = activation()
+
         nn.init.trunc_normal_(self.linear.weight, std=0.1)
         if add_bias:
             nn.init.constant_(self.linear.bias, 0)
@@ -765,7 +781,7 @@ class Model(nn.Module):
             math.log(w_n / w_m),
             math.log(h_n / h_m),
         ]
-    
+
     def get_feed_dict(self, batch,is_train=False):
         config = self.config
         # Tensor dimensions, so pylint: disable=g-bad-name
@@ -800,7 +816,7 @@ class Model(nn.Module):
             for j in range(config.pred_len):
                 # used in testing to get the prediction length
                 traj_pred_gt_mask[i, j] = True
-                # ---------------------------------------
+            # ---------------------------------------
 
         # link the feed_dict
         feed_dict["traj_obs_gt"] = traj_obs_gt.to(self.device)
@@ -881,12 +897,13 @@ class Model(nn.Module):
             obs_person_features = torch.from_numpy(data['obs_person_features'])
         feed_dict["obs_person_features"] = obs_person_features.to(self.device)
 
+
         # add other boxes,
         K = self.K  # max_other boxes
-        other_boxes_class = torch.zeros(
-            N, T_in, K, config.num_box_class, dtype=torch.float)
-        other_boxes = torch.zeros(N, T_in, K, 4, dtype=torch.float)
-        other_boxes_mask = torch.zeros(N, T_in, K, dtype=torch.bool)
+        other_boxes_class = np.zeros(
+            (N, T_in, K, config.num_box_class), dtype="float")
+        other_boxes = np.zeros((N, T_in, K, 4), dtype="float")
+        other_boxes_mask = np.zeros((N, T_in, K), dtype="float")
         for i in range(len(data['obs_other_box'])):
             for j in range(len(data['obs_other_box'][i])):  # -> seq_len
                 this_other_boxes = data['obs_other_box'][i][j]
@@ -907,15 +924,15 @@ class Model(nn.Module):
 
                     other_box_x1y1x2y2 = this_other_boxes[idx]
 
-                    other_boxes[i, j, k, :] = torch.tensor(self.encode_other_boxes(
-                        this_person_x1y1x2y2, other_box_x1y1x2y2)).to(other_boxes)
+                    other_boxes[i, j, k, :] = self.encode_other_boxes(
+                        this_person_x1y1x2y2, other_box_x1y1x2y2)
                     # one-hot representation
                     box_class = this_other_boxes_class[idx]
                     other_boxes_class[i, j, k, box_class] = 1
 
-        feed_dict['obs_other_boxes'] = other_boxes.to(self.device)
-        feed_dict["obs_other_boxes_class"] = other_boxes_class.to(self.device)
-        feed_dict["obs_other_boxes_mask"] = other_boxes_mask.to(self.device)
+        feed_dict['obs_other_boxes'] = torch.from_numpy(other_boxes).float().to(self.device)
+        feed_dict["obs_other_boxes_class"] = torch.from_numpy(other_boxes_class).float().to(self.device)
+        feed_dict["obs_other_boxes_mask"] = torch.from_numpy(other_boxes_mask).float().to(self.device)
 
         if is_train:
             for i, (obs_data, pred_data) in enumerate(zip(data['obs_traj_rel'],
@@ -942,7 +959,6 @@ class Model(nn.Module):
             feed_dict['grid_pred_targets'] = [i.to(self.device) for i in feed_dict['grid_pred_targets']]
 
 
-
         feed_dict["traj_pred_gt"] = traj_pred_gt.to(self.device)
         feed_dict["scene_feat"] = torch.tensor(data['batch_scene_feat']).to(self.device)
 
@@ -962,6 +978,7 @@ class Model(nn.Module):
             for i in range(len(data['traj_cat'])):
                 traj_class[i] = data['traj_cat'][i]
             feed_dict["traj_class_gt"] = traj_class.to(self.device)
+
         return feed_dict
 
 

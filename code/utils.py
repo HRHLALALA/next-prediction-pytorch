@@ -369,7 +369,7 @@ def read_data(args, data_type):
         boxid = data['obs_boxid'][i][j]
         threads.append(threading.Thread(target=read_file, args=(args.person_feat_path, split,boxid, i,j)))
         threads[-1].start()
-        while len(threads) > 32: threads.pop().join()
+        while len(threads) > 64: threads.pop().join()
     while len(threads) > 0: threads.pop().join()
     assert len(threads) == 0
 
