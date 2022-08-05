@@ -48,7 +48,7 @@ The raw code result is
   </tr>
 </table>
 
-There are two possible bugs here we have not tested:
+There is one possible bugs here we have not tested:
 * the pytorch version of tf.gather_nd
 
 ## Train/Test
