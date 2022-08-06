@@ -30,10 +30,10 @@ add_activity=${add_activity:-1}
 multi_decoder=${multi_decoder:-1}
 preload_features=${preload_features:-1}
 embed_traj_label=${embed_traj_label:-0}
-runId=${runId:-$RANDOM}
+runId=${runId:-0}
 
 base_args="${prepropath} ${save_folder} ${modelname} \
-  --runId ${runId:-$RANDOM} \
+  --runId ${runId} \
   --is_actev \
   $([ $add_kp == 1 ] && echo "--add_kp" || echo "" ) \
   $([ $add_activity == 1 ] && echo "--add_activity" || echo "" ) \
