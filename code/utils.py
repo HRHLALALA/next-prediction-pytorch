@@ -759,7 +759,7 @@ class Saver:
     :param engine: Trainer or Tester
     :param args:
     """
-    self.queue = PriorityQueue(maxsize=max_to_keep)
+    self.__queue = PriorityQueue(maxsize=max_to_keep)
 
   def save(self,engine, root, global_step):
     model = engine.model
@@ -771,21 +771,25 @@ class Saver:
     if isinstance(engine, Trainer):
       state_dict['optim_state_dict'] = engine.opt.state_dict()
       state_dict['global_step'] = global_step
-    if self.queue.full():
-      epoch_no = self.queue.get()
+    if self.__queue.full():
+      epoch_no = self.__queue.get()
       path =  root + f"_{epoch_no}.pt"
       os.makedirs(os.path.dirname(path), exist_ok=True)
       os.remove(path)
     torch.save(state_dict, root + f"_{global_step}.pt")
-    self.queue.put(global_step)
-    with open(os.path.join(os.path.dirname(root), f"checkpoint"), "w+") as f:
-      f.write(f'model_checkpoint_path: "save-${global_step}"')
+    self.__queue.put(global_step)
+    with open(os.path.join(os.path.dirname(root), f"checkpoint"), "w") as f:
+      f.write(os.path.basename(root + f"_{global_step}.pt"))
 
   def restore(self,engine, loadpath):
-    path_list = glob(os.path.join(loadpath, "*.pt"))
-    index_list = [-int(re.findall(r'\d+', os.path.basename(i))[0]) for i in path_list]
-    idx = np.argsort(index_list)[0]
-    loadpath = path_list[idx]
+    # path_list = glob(os.path.join(loadpath, "*.pt"))
+    # index_list = [-int(re.findall(r'\d+', os.path.basename(i))[0]) for i in path_list]
+    # idx = np.argsort(index_list)[0]
+    with open(os.path.join(loadpath, "checkpoint"), "r") as f:
+      model_file = f.readlines()[-1]
+
+    loadpath = os.path.join(loadpath, model_file) #path_list[idx]
+    print(f"load model from {loadpath}")
     model = engine.model
     ckpt = torch.load(loadpath)
     model.load_state_dict(ckpt['model_state_dict'])
