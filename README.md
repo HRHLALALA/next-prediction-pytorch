@@ -76,5 +76,4 @@ If you find this code useful in your research then please cite
 * **29 July 2022**: We have added `kaiming_normal_` for convolution weights, `trunc_normal_` for linear layers and `constant_` for biases. The performance boosts up and gets close to the official version 
 * **4 Aug 2022**: We accelerated the data processing. It seems that Numpy is much faster than Pytorch. Now we can train the model within 2 hours.
 * **6 Aug 2022**: Tested `embedding_lookup` which is correct. 
-* **7 Aug 2022**: We followed raw code and modified the dropout and weight decay. We fixed one bug in `get_feed_dict`. Performance boosted.
- * The position of dropout is very important
+* **7 Aug 2022**: We followed raw code and modified the dropout (important) and weight decay. We fixed one bug in `get_feed_dict`. Performance boosted.
