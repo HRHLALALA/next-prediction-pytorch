@@ -149,6 +149,7 @@ def main(args):
         wandb.log({
             "loss": loss,
             "xyloss": xyloss,
+            "activity_loss": act_loss,
             "traj_class_loss": traj_class_loss,
             **{"grid_loss/" + str(i): grid_loss[i] for i in range(len(grid_loss))}
         }, step=global_step)
