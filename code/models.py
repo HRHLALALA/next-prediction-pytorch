@@ -122,7 +122,7 @@ class Linear(nn.Module):
 
         nn.init.trunc_normal_(self.linear.weight, std=0.1)
         if add_bias:
-            nn.init.constant_(self.linear.bias, 0)
+            nn.init.constant_(self.linear.bias, 0.0)
 
     def forward(self, x):
         x = self.linear(x)
@@ -137,12 +137,15 @@ class LSTMStateTuple:
 
 
 class LSTM(nn.Module):
-    def __init__(self, scope="", *args, **kwargs):
+    def __init__(self, scope="", input_dropout=1, *args, **kwargs):
         super(LSTM, self).__init__()
         self.lstm = nn.LSTM(*args, **kwargs, batch_first=True)
         self.scope = scope
+        # consistent with dropout wrapper
+        self.input_dropout = nn.Dropout(input_dropout)
 
     def forward(self, x, state=None):
+        x = self.input_dropout(x)
         if state is not None:
             h, c = state
             output, (h, c) = self.lstm(x, (h, c))
@@ -152,11 +155,13 @@ class LSTM(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    def __init__(self, *args, **kwargs):
+    def __init__(self,input_dropout=1, *args, **kwargs):
         super(LSTMCell, self).__init__()
         self.lstm = nn.LSTMCell(*args, **kwargs)
+        self.input_dropout = nn.Dropout(input_dropout)
 
     def forward(self, x, state=None):
+        x = self.input_dropout(x)
         if state is not None:
             h, c = state.h, state.c
             (h, c) = self.lstm(x, (h, c))
@@ -234,30 +239,30 @@ class Model(nn.Module):
         self.enc_traj = LSTM(
             input_size=config.emb_size,
             hidden_size=config.enc_hidden_size,
-            dropout=config.keep_prob
+            input_dropout=config.keep_prob
         )
 
         self.enc_personscene = LSTM(
             input_size=config.scene_conv_dim,
             hidden_size=config.enc_hidden_size,
-            dropout=config.keep_prob
+            input_dropout=config.keep_prob
         )
         if config.add_kp:
             self.enc_kp = LSTM(
                 input_size=config.emb_size,
                 hidden_size=config.enc_hidden_size,
-                dropout=config.keep_prob
+                input_dropout=config.keep_prob
             )
 
         self.enc_person = LSTM(
             input_size=config.person_feat_dim,
             hidden_size=config.enc_hidden_size,
-            dropout=config.keep_prob
+            input_dropout=config.keep_prob
         )
         self.enc_other = LSTM(
             input_size=config.box_emb_size * 2,
             hidden_size=config.enc_hidden_size,
-            dropout=config.keep_prob
+            input_dropout=config.keep_prob
         )
 
         self.enc_gridclass = nn.ModuleDict()
@@ -265,7 +270,7 @@ class Model(nn.Module):
             self.enc_gridclass['enc_gridclass_%s' % i] = LSTM(
                 input_size=h*w,
                 hidden_size=config.enc_hidden_size,
-                dropout=config.keep_prob
+                input_dropout=config.keep_prob
             )
         # ------------------------ decoder
 
@@ -275,11 +280,13 @@ class Model(nn.Module):
                 self.dec_cell_traj[str(i)] = LSTMCell(
                     input_size=config.emb_size + config.enc_hidden_size,
                     hidden_size=config.dec_hidden_size,
+                    input_dropout=config.keep_prob
                 )
         else:
             self.dec_cell_traj = LSTMCell(
                 input_size=config.emb_size + config.enc_hidden_size,
                 hidden_size=config.dec_hidden_size,
+                input_dropout=config.keep_prob
             )
 
         self.enc_xy_emb = Linear(2, output_size=config.emb_size,
@@ -398,13 +405,11 @@ class Model(nn.Module):
             grid_obs_enc_last_state.append(obs_gridclass_encode_last_state)
         enc_h_list.extend(grid_obs_enc_h)
         enc_last_state_list.extend(grid_obs_enc_last_state)
-
         #########################Scope scene#################################3
         """ embedding_lookup """
         obs_scene = torch.index_select(batch['scene_feat'], 0, batch['obs_scene'].long().ravel())
         obs_scene = obs_scene.reshape(N, -1, *batch['scene_feat'].shape[1:])
         obs_scene = torch.mean(obs_scene, dim=1)  # [N, SH, SW, SC]
-
         """scene conv"""
         scene_conv1 = obs_scene
         scene_conv2 = self.conv2(scene_conv1)
@@ -843,15 +848,14 @@ class Model(nn.Module):
         feed_dict['grid_pred_targets'] = [None] * len(config.scene_grids)
         feed_dict['grid_obs_labels'] = [None] * len(config.scene_grids)
         # feed_dict['grid_obs_targets'] = [None] * len(config.scene_grids)
-            
+
         for j, _ in enumerate(config.scene_grids):
             # [N, seq_len]
             # currently only the destination
 
-            feed_dict['grid_obs_labels'].append(
-                torch.empty(N, T_in, dtype=torch.int32))  # grid class
+
             this_grid_label = torch.zeros(N, T_in, dtype=torch.int32)
-            
+
             for i in range(len(data['obs_grid_class'])):
                 this_grid_label[i, :] = torch.from_numpy(data['obs_grid_class'][i][j, :])
 
@@ -979,6 +983,7 @@ class Model(nn.Module):
                 traj_class[i] = data['traj_cat'][i]
             feed_dict["traj_class_gt"] = traj_class.to(self.device)
 
+
         return feed_dict
 
 
@@ -1070,6 +1075,8 @@ def concat_states(state_tuples, dim):
                                       dim=dim))
 
 
+
+
 class Trainer(object):
     """Trainer class for model."""
 
@@ -1089,12 +1096,12 @@ class Trainer(object):
 
         if config.optimizer == 'adadelta':
             self.opt = torch.optim.Adadelta(
-                params, learning_rate
+                params, learning_rate, weight_decay=config.wd
             )
 
         elif config.optimizer == 'adam':
             self.opt = torch.optim.Adam(
-                params, learning_rate
+                params, learning_rate, weight_decay=config.wd
             )
         else:
             raise Exception('Optimizer not implemented')
@@ -1123,7 +1130,7 @@ class Trainer(object):
         loss.backward()
 
         if self.config.clip_gradient_norm is not None:
-            torch.nn.utils.clip_grad_norm_(
+            torch.nn.utils.clip_grad_value_(
                 self.model.parameters(),
                 config.clip_gradient_norm)
         self.opt.step()
