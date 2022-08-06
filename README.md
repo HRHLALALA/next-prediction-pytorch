@@ -48,8 +48,7 @@ The raw code result is
   </tr>
 </table>
 
-There are two possible bugs here we have not tested:
-* the pytorch version of tf.embedding_lookup
+There is one possible bugs here we have not tested:
 * the pytorch version of tf.gather_nd
 
 ## Train/Test
@@ -74,4 +73,6 @@ If you find this code useful in your research then please cite
 ```
 
 ### Updates
-**29 July 2022**: We have added `kaiming_normal_` for convolution weights, `trunc_normal_` for linear layers and `constant_` for biases. The performance boosts up and gets close to the official version 
+* **29 July 2022**: We have added `kaiming_normal_` for convolution weights, `trunc_normal_` for linear layers and `constant_` for biases. The performance boosts up and gets close to the official version 
+* **4 Aug 2022**: We accelerated the data processing. It seems that Numpy is much faster than Pytorch. Now we can train the model within 2 hours.
+* **6 Aug 2022**: Tested `embedding_lookup` which is correct. 
