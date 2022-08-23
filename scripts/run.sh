@@ -49,11 +49,11 @@ echo $base_args
 
 if [ ${run_mode:-all} = "all" ] || [ ${run_mode:-all} = "train" ]; then
   echo -------------------------train ----------------------
-python code/train.py ${base_args} --message "${message:-no_message}" --group=${group:-default}
+python3 code/train.py ${base_args} --message "${message:-no_message}" --group=${group:-default}
 fi
 
 
 if [ ${run_mode:-all} = "all" ] || [ ${run_mode:-all} = "test_single" ]; then
   echo -------------------------Test Single ----------------------
-python code/test.py ${base_args}
+python3 code/test.py ${base_args} --save_output=single_${modelname}.traj.p  --load_best
 fi
