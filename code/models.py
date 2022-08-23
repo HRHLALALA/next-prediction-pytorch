@@ -72,36 +72,43 @@ class Conv2d(nn.Conv2d):
         self.data_format = data_format
         if w_init is None:
             nn.init.kaiming_normal_(self.weight)
+            # nn.init.constant_(self.weight, 1)
         else:
             w_init(self.weight)
         if add_bias:
             nn.init.constant_(self.bias,0)
 
-    def calc_same_pad(self, i: int, k: int, s: int, d: int) -> int:
-        return max((math.ceil(i) - 1) + (k - 1) * d + 1 - i, 0)
+    def calc_same_pad(self, h, w,  k, s):
+        out_height = np.ceil(float(h) / float(s[0]))
+        out_width = np.ceil(float(w) / float(s[1]))
+
+        if (h % s[0] == 0):
+            pad_along_height = max(k[0] - s[0], 0)
+        else:
+            pad_along_height = max(k[0] - s[0]- (h % s[0]), 0)
+        if (w % s[1] == 0):
+            pad_along_width = max(k[1] - s[1], 0)
+        else:
+            pad_along_width = max(k[1]  - (w % s[1]), 0)
+        pad_bottom = pad_along_height // 2
+        pad_top = pad_along_height - pad_bottom
+        pad_left = pad_along_width // 2
+        pad_right = pad_along_width - pad_left
+        return pad_top, pad_bottom, pad_left, pad_right
 
     def forward(self, x):
 
         if self.data_format == "NHWC":
             x = x.permute(0, 3, 1, 2)
-
         N, C, H, W = x.shape
         ih, iw = x.size()[-2:]
-        pad_h = self.calc_same_pad(i=ih, k=self.kernel_size[0], s=self.stride[0], d=self.dilation[0])
-        pad_w = self.calc_same_pad(i=iw, k=self.kernel_size[1], s=self.stride[1], d=self.dilation[1])
-        if pad_h > 0 or pad_w > 0:
-            x = F.pad(
-                x, [pad_w // 2, pad_w - pad_w // 2, pad_h // 2, pad_h - pad_h // 2]
-            )
+        t,b,l, r = self.calc_same_pad(H, W, self.kernel_size, self.stride)
 
-        x = F.conv2d(
+        x = F.pad(
+            x, [l,r, t,b],
+        )
+        x = super().forward(
             x,
-            self.weight,
-            self.bias,
-            self.stride,
-            self.padding,
-            self.dilation,
-            self.groups,
         )
         x = self.activation(x)
         if self.data_format == "NHWC":
@@ -121,6 +128,7 @@ class Linear(nn.Module):
         self.activation = activation()
 
         nn.init.trunc_normal_(self.linear.weight, std=0.1)
+        # nn.init.constant_(self.linear.weight, 1.0)
         if add_bias:
             nn.init.constant_(self.linear.bias, 0.0)
 
@@ -137,15 +145,21 @@ class LSTMStateTuple:
 
 
 class LSTM(nn.Module):
-    def __init__(self, scope="", input_dropout=1, *args, **kwargs):
+    def __init__(self, scope="", input_keep_prob=1, *args, **kwargs):
         super(LSTM, self).__init__()
         self.lstm = nn.LSTM(*args, **kwargs, batch_first=True)
+        # for name, param in self.lstm.named_parameters():
+        #     if "weight" in name:
+        #         nn.init.xavier_normal_(param)
+        #         nn.init.constant_(param, 1.0)
+        #     elif "bias" in name:
+        #         nn.init.constant_(param, 0.0)
         self.scope = scope
         # consistent with dropout wrapper
-        self.input_dropout = nn.Dropout(input_dropout)
+        self.input_keep_prob = nn.Dropout(1 - input_keep_prob)
 
     def forward(self, x, state=None):
-        x = self.input_dropout(x)
+        x = self.input_keep_prob(x)
         if state is not None:
             h, c = state
             output, (h, c) = self.lstm(x, (h, c))
@@ -155,13 +169,13 @@ class LSTM(nn.Module):
 
 
 class LSTMCell(nn.Module):
-    def __init__(self,input_dropout=1, *args, **kwargs):
+    def __init__(self,input_keep_prob=1, *args, **kwargs):
         super(LSTMCell, self).__init__()
         self.lstm = nn.LSTMCell(*args, **kwargs)
-        self.input_dropout = nn.Dropout(input_dropout)
+        self.input_keep_prob = nn.Dropout(1-input_keep_prob)
 
     def forward(self, x, state=None):
-        x = self.input_dropout(x)
+        x = self.input_keep_prob(x)
         if state is not None:
             h, c = state.h, state.c
             (h, c) = self.lstm(x, (h, c))
@@ -239,30 +253,30 @@ class Model(nn.Module):
         self.enc_traj = LSTM(
             input_size=config.emb_size,
             hidden_size=config.enc_hidden_size,
-            input_dropout=config.keep_prob
+            input_keep_prob=config.keep_prob
         )
 
         self.enc_personscene = LSTM(
             input_size=config.scene_conv_dim,
             hidden_size=config.enc_hidden_size,
-            input_dropout=config.keep_prob
+            input_keep_prob=config.keep_prob
         )
         if config.add_kp:
             self.enc_kp = LSTM(
                 input_size=config.emb_size,
                 hidden_size=config.enc_hidden_size,
-                input_dropout=config.keep_prob
+                input_keep_prob=config.keep_prob
             )
 
         self.enc_person = LSTM(
             input_size=config.person_feat_dim,
             hidden_size=config.enc_hidden_size,
-            input_dropout=config.keep_prob
+            input_keep_prob=config.keep_prob
         )
         self.enc_other = LSTM(
             input_size=config.box_emb_size * 2,
             hidden_size=config.enc_hidden_size,
-            input_dropout=config.keep_prob
+            input_keep_prob=config.keep_prob
         )
 
         self.enc_gridclass = nn.ModuleDict()
@@ -270,7 +284,7 @@ class Model(nn.Module):
             self.enc_gridclass['enc_gridclass_%s' % i] = LSTM(
                 input_size=h*w,
                 hidden_size=config.enc_hidden_size,
-                input_dropout=config.keep_prob
+                input_keep_prob=config.keep_prob
             )
         # ------------------------ decoder
 
@@ -280,13 +294,13 @@ class Model(nn.Module):
                 self.dec_cell_traj[str(i)] = LSTMCell(
                     input_size=config.emb_size + config.enc_hidden_size,
                     hidden_size=config.dec_hidden_size,
-                    input_dropout=config.keep_prob
+                    input_keep_prob=config.keep_prob
                 )
         else:
             self.dec_cell_traj = LSTMCell(
                 input_size=config.emb_size + config.enc_hidden_size,
                 hidden_size=config.dec_hidden_size,
-                input_dropout=config.keep_prob
+                input_keep_prob=config.keep_prob
             )
 
         self.enc_xy_emb = Linear(2, output_size=config.emb_size,
@@ -338,6 +352,7 @@ class Model(nn.Module):
                 output_size=config.emb_size,
                 activation=config.activation_func,
                 add_bias=True, scope=f'obs_grid_class_emb_{i}')
+
             feature_size = config.enc_hidden_size * 7 + (config.enc_hidden_size if config.embed_traj_label else 0)
 
             scene_feature_size = config.emb_size + \
@@ -389,6 +404,7 @@ class Model(nn.Module):
         traj_xy_emb_enc = self.enc_xy_emb(batch['traj_obs_gt'])
         traj_obs_enc_h, traj_obs_enc_last_state = self.enc_traj(
             traj_xy_emb_enc)  # encode traj
+
         enc_h_list = [traj_obs_enc_h]
         enc_last_state_list = [traj_obs_enc_last_state]
         # grid class and grid regression encoder
@@ -414,6 +430,7 @@ class Model(nn.Module):
         scene_conv1 = obs_scene
         scene_conv2 = self.conv2(scene_conv1)
         scene_conv3 = self.conv3(scene_conv2)
+
         scene_convs = [scene_conv2, scene_conv3]
 
         # pool the scene features for each trajectory, for different scale
@@ -424,6 +441,7 @@ class Model(nn.Module):
 
         # [N, num_grid_class, conv_dim]
         scene_conv_full = scene_convs[pool_scale_idx].reshape(N, scene_h * scene_w, conv_dim)
+
 
         # [N, seq_len]
         obs_grid = batch['grid_obs_labels'][pool_scale_idx]
@@ -442,6 +460,7 @@ class Model(nn.Module):
 
         # [N*seq_len, h*w, feat_dim] + [N*seq_len,2] -> # [N*seq_len, feat_dim]
         obs_personscene = gather_nd(scene_conv_full_tile, indices)
+
         obs_personscene = obs_personscene.reshape(N, config.obs_len, conv_dim)
 
         # obs_personscene [N, seq_len, conv_dim]
@@ -500,8 +519,9 @@ class Model(nn.Module):
         other_obs_enc_h, other_obs_enc_last_state = self.enc_other(other_box_features_attended)
         enc_h_list.append(other_obs_enc_h)
         enc_last_state_list.append(other_obs_enc_last_state)
-
         # pack all observed hidden states
+        # print([torch.mean(i) for i in enc_h_list])
+
         obs_enc_h = torch.stack(enc_h_list, dim=1)
         # .h is [N,h_dim*k]
         obs_enc_last_state = concat_states(enc_last_state_list, dim=1)
@@ -518,6 +538,7 @@ class Model(nn.Module):
 
         # -------------------------------------------------- xy decoder
         traj_obs_last = batch['traj_obs_gt'][:, -1]
+
 
         pred_length = batch['traj_pred_gt_mask'].long().sum(1)  # N
         if config.multi_decoder:
@@ -542,6 +563,7 @@ class Model(nn.Module):
                     self.dec_cell_traj[str(traj_cat)])
                 for _, traj_cat in config.traj_cats
             ]
+            # print([torch.mean(i) for i in traj_pred_outs])
             traj_pred_outs = torch.stack(traj_pred_outs, dim=1)
 
             # [N, 2]
@@ -551,11 +573,11 @@ class Model(nn.Module):
             # [N, T, 2]
             traj_pred_out = gather_nd(traj_pred_outs, indices)
 
+
         else:
             traj_pred_out = self.decoder(traj_obs_last, traj_obs_enc_last_state,
                                          obs_enc_h, pred_length, self.dec_cell_traj, scope='decoder')
         out['traj_pred_out'] = traj_pred_out
-
         if config.add_activity:
             # activity decoder
             future_act_logits = self.activity_head(
@@ -662,6 +684,7 @@ class Model(nn.Module):
 
         curr_cell_state = enc_last_state
         decoder_out_ta = [first_input]
+
         for i in range(T2):
             curr_input_xy = cond(
                 self.training,
@@ -672,10 +695,12 @@ class Model(nn.Module):
                 ),
                 lambda: decoder_out_ta[-1]
             )
+
             xy_emb = self.xy_emb_dec(curr_input_xy)
+            # print(i, torch.mean(curr_cell_state.h))
             attended_encode_states = focal_attention(
                 curr_cell_state.h, enc_h, use_sigmoid=False)
-
+            # print(i, torch.mean(curr_cell_state.h), torch.mean(enc_h), torch.mean(attended_encode_states))
             rnn_input = torch.cat(
                 [xy_emb, attended_encode_states], dim=1)
 
@@ -689,6 +714,7 @@ class Model(nn.Module):
         decoder_out = decoder_out.permute(1, 0, 2)
         # decoder_out = self.hidden2xy(
         #     decoder_out_h)
+        # print("decoder", decoder_out[0:2], decoder_out.shape, decoder_out.mean())
         return decoder_out
 
     def hidden2xy(self, lstm_h):
@@ -738,9 +764,8 @@ class Model(nn.Module):
 
             # regression loss
             regression_loss = nn.HuberLoss()(
-                target=grid_pred_target, input=grid_target_logit)
+                target=grid_pred_target, input=grid_target_logit) * grid_loss_weight
 
-            regression_loss = regression_loss * grid_loss_weight
             loss_dict[f'grid_class_loss_{i}'] = class_loss
             loss_dict[f'grid_regression_loss_{i}'] = regression_loss
 
@@ -749,7 +774,6 @@ class Model(nn.Module):
             act_loss_weight = config.act_loss_weight
             future_act_logits = out['future_act_logits']  # [N,num_act]
             future_act_label = batch['future_act_label']  # [N,num_act]
-
             activity_loss = nn.BCEWithLogitsLoss()(
                 target=future_act_label.float(), input=future_act_logits) * act_loss_weight
             loss_dict['activity_loss'] = activity_loss
@@ -915,8 +939,8 @@ class Model(nn.Module):
 
                 other_box_idxs = range(len(this_other_boxes))
 
-                if config.random_other:
-                    random.shuffle(other_box_idxs)
+                # if config.random_other:
+                #     random.shuffle(other_box_idxs)
 
                 other_box_idxs = other_box_idxs[:K]
 
@@ -938,29 +962,29 @@ class Model(nn.Module):
         feed_dict["obs_other_boxes_class"] = torch.from_numpy(other_boxes_class).float().to(self.device)
         feed_dict["obs_other_boxes_mask"] = torch.from_numpy(other_boxes_mask).float().to(self.device)
 
-        if is_train:
-            for i, (obs_data, pred_data) in enumerate(zip(data['obs_traj_rel'],
-                                                          data['pred_traj_rel'])):
-                for j, xy in enumerate(pred_data):
-                    traj_pred_gt[i, j, :] = torch.from_numpy(xy)
-                    traj_pred_gt_mask[i, j] = True
+        # if is_train:
+        for i, (obs_data, pred_data) in enumerate(zip(data['obs_traj_rel'],
+                                                      data['pred_traj_rel'])):
+            for j, xy in enumerate(pred_data):
+                traj_pred_gt[i, j, :] = torch.from_numpy(xy)
+                traj_pred_gt_mask[i, j] = True
 
-            for j, _ in enumerate(config.scene_grids):
+        for j, _ in enumerate(config.scene_grids):
 
-                this_grid_label = torch.zeros(N, dtype=torch.int32)
-                this_grid_target = torch.zeros(N, 2, dtype=torch.float)
-                for i in range(len(data['pred_grid_class'])):
-                    # last pred timestep
-                    this_grid_label[i] = data['pred_grid_class'][i][j, -1]
-                    # last pred timestep
-                    this_grid_target[i] = torch.from_numpy(data['pred_grid_target'][i][j, -1])
+            this_grid_label = torch.zeros(N, dtype=torch.int32)
+            this_grid_target = torch.zeros(N, 2, dtype=torch.float)
+            for i in range(len(data['pred_grid_class'])):
+                # last pred timestep
+                this_grid_label[i] = data['pred_grid_class'][i][j, -1]
+                # last pred timestep
+                this_grid_target[i] = torch.from_numpy(data['pred_grid_target'][i][j, -1])
 
-                # add new label as kxk for more target loss?
+            # add new label as kxk for more target loss?
 
-                feed_dict['grid_pred_labels'][j] = this_grid_label
-                feed_dict['grid_pred_targets'][j] = this_grid_target
-            feed_dict['grid_pred_labels'] = [i.to(self.device) for i in feed_dict['grid_pred_labels']]
-            feed_dict['grid_pred_targets'] = [i.to(self.device) for i in feed_dict['grid_pred_targets']]
+            feed_dict['grid_pred_labels'][j] = this_grid_label
+            feed_dict['grid_pred_targets'][j] = this_grid_target
+        feed_dict['grid_pred_labels'] = [i.to(self.device) for i in feed_dict['grid_pred_labels']]
+        feed_dict['grid_pred_targets'] = [i.to(self.device) for i in feed_dict['grid_pred_targets']]
 
 
         feed_dict["traj_pred_gt"] = traj_pred_gt.to(self.device)
@@ -972,7 +996,6 @@ class Model(nn.Module):
 
             for i in range(len(data['future_activity_onehot'])):
                 future_act[i, :] = torch.from_numpy(data['future_activity_onehot'][i])
-
             feed_dict["future_act_label"] = future_act.to(self.device)
 
         # needed since it is in tf.conf, but all zero in testing
@@ -982,8 +1005,6 @@ class Model(nn.Module):
             for i in range(len(data['traj_cat'])):
                 traj_class[i] = data['traj_cat'][i]
             feed_dict["traj_class_gt"] = traj_class.to(self.device)
-
-
         return feed_dict
 
 
@@ -1005,9 +1026,7 @@ def reconstruct(tensor, ref, keep):
 
 def softmax(logits, scope=None):
     """a flatten and reconstruct version of softmax."""
-    flat_logits = logits.view(logits.shape[0], -1)
-    flat_out = torch.softmax(flat_logits, dim=-1)
-    out = reconstruct(flat_out, logits, 1)
+    out = torch.softmax(logits, dim=-1)
     return out
 
 
@@ -1054,7 +1073,7 @@ def focal_attention(query, context, use_sigmoid=False):
 
     # cosine simi
     query_aug_norm = F.normalize(query_aug, p=2, dim=-1)
-    context_norm = F.normalize(context, dim=-1)
+    context_norm = F.normalize(context,p=2, dim=-1)
     # [N, K, T]
     a_logits = torch.multiply(query_aug_norm, context_norm).sum(3)
 
@@ -1063,7 +1082,7 @@ def focal_attention(query, context, use_sigmoid=False):
     attended_context = softsel(softsel(context, a_logits,
                                        use_sigmoid=use_sigmoid), a_logits_maxed,
                                use_sigmoid=use_sigmoid)
-
+    # print(query.mean(),context.mean(), a_logits.mean(), a_logits_maxed.mean(),attended_context.mean())
     return attended_context
 
 
@@ -1091,17 +1110,21 @@ class Trainer(object):
             {
                 'params': v,
                 'lr': learning_rate * config.emb_lr if "emb" in k else learning_rate,
+                'weight_decay': 0 if 'bias' in k else config.wd
             } for k, v in model.named_parameters()
         ]
+        # for k, v in model.named_parameters():
+        #     print(k)
+        # exit()
 
         if config.optimizer == 'adadelta':
             self.opt = torch.optim.Adadelta(
-                params, learning_rate, weight_decay=config.wd
+                params, learning_rate
             )
 
         elif config.optimizer == 'adam':
             self.opt = torch.optim.Adam(
-                params, learning_rate, weight_decay=config.wd
+                params, learning_rate
             )
         else:
             raise Exception('Optimizer not implemented')
@@ -1143,6 +1166,8 @@ class Trainer(object):
             grid_loss += [loss_dict.get(f'grid_class_loss_{i}', -1), \
                          loss_dict.get(f'grid_regression_loss_{i}', -1)]
         self.global_step += 1
+        # print(loss, xyloss, act_loss, traj_class_loss, grid_loss)
+        # exit()
         return loss, xyloss, act_loss, traj_class_loss, grid_loss
 
 
@@ -1167,7 +1192,6 @@ class Tester(object):
         pred_out = out.get('traj_pred_out', None)
         future_act = out.get('future_act_logits', None)
         grid_pred_1, grid_pred_2 = out.get('grid_class_logits', None)
-        # grid_pred_1, grid_pred_2 = out.get('grid_target_logits', None)
         traj_class_logits = out.get('traj_class_logits', None)
 
 
