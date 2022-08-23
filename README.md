@@ -88,4 +88,4 @@ If you find this code useful in your research then please cite
 * **4 Aug 2022**: We accelerated the data processing. It seems that Numpy is much faster than Pytorch. Now we can train the model within 2 hours.
 * **6 Aug 2022**: Tested `embedding_lookup` which is correct. 
 * **6 Aug 2022**: We followed raw code and modified the dropout (important) and weight decay. We fixed one bug in `get_feed_dict`. Performance boosted.
-* **23 Aug 2022 (important!)**: **Fixed bugs on `keep_prob` and focal attention**. We tested the model by ones initialisation for weights and zeros initialisation for biases. All performance are comparable with baseline.
+* **23 Aug 2022 (important!)**: **Fixed bugs on `keep_prob` and focal attention**. We tested the model by ones initialisation for weights and zeros initialisation for biases and print each result. All results are comparable with baseline.
