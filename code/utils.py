@@ -93,6 +93,10 @@ object2id = {
 }
 
 
+def sigmoid(x):
+  return 1 / (1 + np.exp(-x))
+
+
 def process_args(args):
   """Process arguments.
 
@@ -377,7 +381,9 @@ def read_data(args, data_type):
   #################### To memory ###############################33
 
 
+
   print("loaded %s data points for %s" % (num_examples, data_type))
+
   return Dataset(data, data_type, shared=shared, config=args)
 
 
@@ -434,6 +440,7 @@ def evaluate(dataset, config, tester):
       "obs_list": [],
       "pred_list": [],
       "pred_gt_list": [],
+      "pred_act": []
     }
 
   for  evalbatch in tqdm.tqdm(dataset.get_batches(config.batch_size, \
@@ -508,14 +515,13 @@ def evaluate(dataset, config, tester):
         videoname = traj_key[::-1].split("_", 2)[-1][::-1]
         scene = get_scene(videoname)  # 0000/0002, etc.
         l2dis_scenes[config.scenes.index(scene)].append(diff)
-
       if config.save_output:
         new_out_data['seq_ids'].append(batch.data["traj_key"][i])
         new_out_data['obs_list'].append(obs_traj_gt)
         new_out_data['pred_list'].append(this_pred_out_abs)
         new_out_data['pred_gt_list'].append(pred_traj_gt)
 
-
+        new_out_data['pred_act'].append(sigmoid(future_act[i]))
 
     l2dis += d
 
@@ -545,6 +551,13 @@ def evaluate(dataset, config, tester):
        "grid1_acc": grid1_acc,
        "grid2_acc": grid2_acc,
        "act_ap": act_ap}
+  l2dis = np.stack(l2dis, axis=0)
+  for i in range(l2dis.shape[1]):
+    p.update({
+      ("per_step_de_t%d"%i):
+        l2dis[:,i].mean()
+    })
+
 
   if config.multi_decoder:
     p.update({
@@ -581,6 +594,10 @@ def evaluate(dataset, config, tester):
           ("%s_ade" % scene): np.mean(ade) if ade else 0.0,
           ("%s_fde" % scene): np.mean(fde) if fde else 0.0,
       })
+
+
+  # per-step eval
+
   if config.save_output:
     with open(config.save_output, "wb") as f:
       pickle.dump(new_out_data, f)
@@ -707,6 +724,7 @@ class Dataset(object):
       if 'obs_person_features' in self.data:
         batch_data['obs_person_features'] = self.data['obs_person_features'][list(batch_idxs)]
 
+      # print(batch_data['obs_traj_rel'][0])
       yield batch_idxs, Dataset(batch_data, self.data_type, shared=self.shared)
 
 
