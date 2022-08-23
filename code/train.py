@@ -111,6 +111,7 @@ def main(args):
 
             tqdm.write("\tsaving model %s..." % global_step)
             saver.save(trainer, args.save_dir_model, global_step=global_step)
+
             tqdm.write("\tdone")
 
             evalperf = utils.evaluate(val_data, args, tester)
@@ -160,9 +161,9 @@ def main(args):
             sys.exit()
 
     if global_step % save_period != 0:
-        saver.save(trainer, args.save_dir_model, global_step=global_step)
-        wandb.save(args.save_dir_model)
-        wandb.save(args.save_dir_best_model)
+        saver.save(trainer, os.path.join(os.getcwd() ,  os.path.dirname(args.save_dir_model)), global_step=global_step)
+        wandb.save(os.path.join(os.getcwd(), os.path.dirname(args.save_dir_model)))
+        wandb.save(os.path.join(os.getcwd(), os.path.dirname(args.save_dir_best_model)))
 
     print("best eval on val %s: %s at %s step, final step %s %s is %s" % (
         metric, best[metric], best["step"], global_step, metric,
@@ -178,9 +179,10 @@ if __name__ == "__main__":
     run = wandb.init(
         project="next-prediction",
         config=arguments,
+        tags=['pytorch'],
         name=arguments.modelname,
         notes=arguments.message,
         group=arguments.group,
     )
-    wandb.run.log_code("./", include_fn=lambda path: path.endswith(".py"))
+    wandb.run.log_code( os.path.join(os.getcwd(), "code") , include_fn=lambda path: path.endswith(".py"))
     main(arguments)
