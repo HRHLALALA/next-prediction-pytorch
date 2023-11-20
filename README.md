@@ -6,6 +6,7 @@ We strongly follow the structure of [next-prediction](https://github.com/google/
 
 We have trained and tested the model:
 [pretrained weights](https://www.dropbox.com/scl/fi/vl9xvtpi1cg30p4640r7q/next-models.zip?rlkey=nvh02nokdajehqgziop71vo97&dl=0)
+
 Put the `next-model/` under the current folder and run `bash scripts/run.sh --run_mode=test_single --runId=00`. You can get the following results.
 
 ```
