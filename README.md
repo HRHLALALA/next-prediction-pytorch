@@ -7,42 +7,50 @@ We strongly follow the structure of [next-prediction](https://github.com/google/
 We have trained and tested the model. Here is the results:
 
 ```
+-------------------------Test Single ----------------------
+[['static', 13014], ['mov', 21166]]
+loaded 34180 data points for test
+total test samples:34180
+restoring model...
+load model from next-models/actev_single_model/model/00/best/save-best_64500.pt
+saved output at single_model.traj.p.
 performance:
-0000_ade, 19.070852
-0000_fde, 40.016636
-0002_ade, 12.5598135
-0002_fde, 25.465317
-0400_ade, 13.849079
-0400_fde, 29.020937
-0401_ade, 22.955137
-0401_fde, 47.329758
-0500_ade, 24.321432
-0500_fde, 48.572792
-act_ap, 0.1946390249960858
-ade, 18.19456
-fde, 37.477123
-grid1_acc, 0.2964077102803738
-grid2_acc, 0.39742990654205607
-mov_ade, 20.38324
-mov_fde, 42.333584
-per_step_de_t0, 2.2617185
-per_step_de_t1, 4.4127126
-per_step_de_t10, 33.43781
-per_step_de_t11, 37.477123
-per_step_de_t2, 6.835699
-per_step_de_t3, 9.523781
-per_step_de_t4, 12.420231
-per_step_de_t5, 15.527474
-per_step_de_t6, 18.804314
-per_step_de_t7, 22.252695
-per_step_de_t8, 25.82756
-per_step_de_t9, 29.55357
-static_ade, 14.634879
-static_fde, 29.578573
-traj_class_accuracy, 0.9385898186073728
-traj_class_accuracy_0, 0.8952666359305363
-traj_class_accuracy_1, 0.9652272512520079
-19.471685 40.906437 12.635235 25.589851 13.957309 29.448845 23.380247 48.150265 23.349108 47.016354 0.19804641877328344 18.419632 37.957672 0.29634929906542057 0.398160046728972 20.651001 42.804962 14.790522 30.074034 0.9378876535985957 0.8856615952051636 0.9699990550883493
+0000_ade, 18.732775
+0000_fde, 39.17251
+0002_ade, 12.431181
+0002_fde, 25.25748
+0400_ade, 13.880731
+0400_fde, 29.23549
+0401_ade, 22.918083
+0401_fde, 47.163574
+0500_ade, 24.24398
+0500_fde, 48.295353
+act_ap, 0.19652319113923225
+ade, 18.081436
+fde, 37.212055
+grid1_acc, 0.296875
+grid2_acc, 0.39789719626168224
+mov_ade, 20.305626
+mov_fde, 42.167683
+per_step_de_t0, 2.2559543
+per_step_de_t1, 4.3897486
+per_step_de_t10, 33.223103
+per_step_de_t11, 37.212055
+per_step_de_t2, 6.7923846
+per_step_de_t3, 9.464146
+per_step_de_t4, 12.347305
+per_step_de_t5, 15.430407
+per_step_de_t6, 18.692186
+per_step_de_t7, 22.120876
+per_step_de_t8, 25.676416
+per_step_de_t9, 29.372652
+static_ade, 14.464005
+static_fde, 29.152206
+traj_class_accuracy, 0.9410181392627267
+traj_class_accuracy_0, 0.8987244505916705
+traj_class_accuracy_1, 0.9670225833884531
+0000_ade 0000_fde 0002_ade 0002_fde 0400_ade 0400_fde 0401_ade 0401_fde 0500_ade 0500_fde act_ap ade fde grid1_acc grid2_acc mov_ade mov_fde per_step_de_t0 per_step_de_t1 per_step_de_t10 per_step_de_t11 per_step_de_t2 per_step_de_t3 per_step_de_t4 per_step_de_t5 per_step_de_t6 per_step_de_t7 per_step_de_t8 per_step_de_t9 static_ade static_fde traj_class_accuracy traj_class_accuracy_0 traj_class_accuracy_1
+18.732775 39.17251 12.431181 25.25748 13.880731 29.23549 22.918083 47.163574 24.24398 48.295353 0.19652319113923225 18.081436 37.212055 0.296875 0.39789719626168224 20.305626 42.167683 2.2559543 4.3897486 33.223103 37.212055 6.7923846 9.464146 12.347305 15.430407 18.692186 22.120876 25.676416 29.372652 14.464005 29.152206 0.9410181392627267 0.8987244505916705 0.9670225833884531
 ```
 The raw code result is 
 
@@ -59,7 +67,7 @@ The raw code result is
   </tr>
 </table>
 
-There is one possible bugs here we have not tested:
+There is one possible bug here we have not tested:
 * the pytorch version of tf.gather_nd
 
 ## Train/Test
@@ -84,8 +92,9 @@ If you find this code useful in your research then please cite
 ```
 
 ### Updates
+* **20 Nov 2023**: We have uploaded the [pretrained weights](https://www.dropbox.com/scl/fi/vl9xvtpi1cg30p4640r7q/next-models.zip?rlkey=nvh02nokdajehqgziop71vo97&dl=0) here. 
 * **29 July 2022**: We have added `kaiming_normal_` for convolution weights, `trunc_normal_` for linear layers and `constant_` for biases. The performance boosts up and gets close to the official version 
 * **4 Aug 2022**: We accelerated the data processing. It seems that Numpy is much faster than Pytorch. Now we can train the model within 2 hours.
 * **6 Aug 2022**: Tested `embedding_lookup` which is correct. 
-* **6 Aug 2022**: We followed raw code and modified the dropout (important) and weight decay. We fixed one bug in `get_feed_dict`. Performance boosted.
-* **23 Aug 2022 (important!)**: **Fixed bugs on `keep_prob` and focal attention**. We tested the model by ones initialisation for weights and zeros initialisation for biases and print each result. All results are comparable with baseline.
+* **6 Aug 2022**: We followed the raw code and modified the dropout (important) and weight decay. We fixed one bug in `get_feed_dict`. Performance boosted.
+* **23 Aug 2022 (important!)**: **Fixed bugs on `keep_prob` and focal attention**. We tested the model by `torch.nn.init.ones_` for weights and zeros initialisation for biases and printed each result. All results are comparable with the baseline.
