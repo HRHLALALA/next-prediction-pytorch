@@ -4,7 +4,9 @@ This repo is the unofficial PyTorch reimplementation of [next-prediction](https:
 
 We strongly follow the structure of [next-prediction](https://github.com/google/next-prediction) and change each line to PyTorch to make sure the model pipeline is consistent, except that we add `pip install wandb` to monitor the process.
 
-We have trained and tested the model. Here is the results:
+We have trained and tested the model:
+[pretrained weights](https://www.dropbox.com/scl/fi/vl9xvtpi1cg30p4640r7q/next-models.zip?rlkey=nvh02nokdajehqgziop71vo97&dl=0)
+Put the `next-model/` under the current folder and run `bash scripts/run.sh --run_mode=test_single --runId=00`. You can get the following results.
 
 ```
 -------------------------Test Single ----------------------
@@ -68,7 +70,7 @@ The raw code result is
 </table>
 
 There is one possible bug here we have not tested:
-* the pytorch version of tf.gather_nd
+* the PyTorch version of tf.gather_nd
 
 ## Train/Test
 Please use the raw scripts in [next-prediction](https://github.com/google/next-prediction) to train the model or use `bash scripts/run.sh ${your args}`. 
