@@ -1,6 +1,6 @@
 # next-prediction.pytorch
  
-This repo is the unofficial PyTorch reimplementation of "Peeking into the Future: Predicting Future Person Activities and Locations in Videos".
+This repo is the unofficial PyTorch reimplementation of "Peeking into the Future: Predicting Future Person Activities and Locations in Videos" in CVPR2019.
 
 Original version: [next-prediction](https://github.com/google/next-prediction).
 
