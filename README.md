@@ -102,8 +102,10 @@ If you find this code useful in your research then please cite
 ```
 
 ### Highlight of PITF
-* This is a typical method that uses multimodal features of scene semantics, human poses and object bounding boxes.
-* The first trajectory prediction benchmark on ActEV/VIRAT.
+A typical trajectory prediction study:
+* using multimodal data such as scene semantics, human poses and object bounding boxes.
+* providing multi-task predictions: future trajectories, goals and human intention (activity) labels.
+* benchmarking on ActEV/VIRAT.
 ![image](https://github.com/HRHLALALA/next-prediction-pytorch/assets/32263355/c4f0269f-afb4-4e8e-ae93-4fdb48b27dc0)
 
 ### Updates
