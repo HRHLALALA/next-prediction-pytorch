@@ -102,7 +102,6 @@ If you find this code useful in your research then please cite
 ```
 
 ### Highlight of PITF
-A typical trajectory prediction study:
 * using multimodal data such as scene semantics, human poses and object bounding boxes.
 * providing multi-task predictions: future trajectories, goals and human intention (activity) labels.
 * benchmarking on ActEV/VIRAT.
