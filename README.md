@@ -2,14 +2,18 @@
  
 This repo is the unofficial PyTorch reimplementation of "Peeking into the Future: Predicting Future Person Activities and Locations in Videos" in CVPR2019.
 
-Original version: [next-prediction](https://github.com/google/next-prediction).
+Original code: [next-prediction](https://github.com/google/next-prediction) in Tensorflow 1x.
 
 **Highlights:**
-* We strongly follow the structure of [next-prediction](https://github.com/google/next-prediction) and change each line to PyTorch to make sure the model pipeline is consistent, except that we add `pip install wandb` to monitor the process.
+* We have strongly followed the structure of [next-prediction](https://github.com/google/next-prediction) and changed each line to PyTorch code. The model pipeline is consistent.
+  
+*  We have added [wandb](https://wandb.ai/home) to monitor the process. Use `pip install wandb` to install the library.
 
 * Pretrained weights are available 
 [here](https://www.dropbox.com/scl/fi/vl9xvtpi1cg30p4640r7q/next-models.zip?rlkey=nvh02nokdajehqgziop71vo97&dl=0)
 
+
+## Evaluation
 Put the `next-model/` under the current folder and run `bash scripts/run.sh --run_mode=test_single --runId=00`. You can get the following results.
 
 ```
@@ -76,7 +80,7 @@ The raw code result is
 There is one possible bug here we have not tested:
 * the PyTorch version of tf.gather_nd
 
-## Train/Test
+## Train
 Please use the raw scripts in [next-prediction](https://github.com/google/next-prediction) to train the model or use `bash scripts/run.sh ${your args}`. 
 
 Note on `scripts/run.sh`: 
@@ -96,6 +100,11 @@ If you find this code useful in your research then please cite
   year = {2019}
 }
 ```
+
+### Highlight of PITF
+* This is a typical method that uses multimodal features of scene semantics, human poses and object bounding boxes.
+* The first trajectory prediction benchmark on ActEV/VIRAT.
+![image](https://github.com/HRHLALALA/next-prediction-pytorch/assets/32263355/c4f0269f-afb4-4e8e-ae93-4fdb48b27dc0)
 
 ### Updates
 * **20 Nov 2023**: We have uploaded the [pretrained weights](https://www.dropbox.com/scl/fi/vl9xvtpi1cg30p4640r7q/next-models.zip?rlkey=nvh02nokdajehqgziop71vo97&dl=0) here. 
